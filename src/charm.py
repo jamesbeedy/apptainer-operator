@@ -3,11 +3,10 @@
 # See LICENSE file for licensing details.
 
 """ApptainerOperatorCharm."""
+from apptainer import Apptainer
 from ops.charm import CharmBase
 from ops.main import main
-from ops.model import ActiveStatus, WaitingStatus
-
-from apptainer import Apptainer
+from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 
 
 class ApptainerOperatorCharm(CharmBase):
@@ -19,50 +18,49 @@ class ApptainerOperatorCharm(CharmBase):
 
         event_handler_bindings = {
             self.on.install: self._on_install,
-            self.on.update_status: self._update_status,
-            self.on.removed: self._on_uninstall,
+            self.on.remove: self._on_uninstall,
             self.on.upgrade_action: self._on_upgrade_apptainer,
         }
         for event, handler in event_handler_bindings.items():
             self.framework.observe(event, handler)
 
-    def _set_workload_version(self):
+    def _set_workload_version(self, apptainer: Apptainer) -> None:
         """Set the charmed workload version."""
-        apptainer_version = apptainer.version()
+        apptainer_version = Apptainer().version()
         self.unit.set_workload_version(apptainer_version)
-        self.unit.status = ActiveStatus(f"Apptainer version: {apptainer_version} installed")
 
-    def _on_install(self, event):
+    def _on_install(self, event) -> None:
         """Perform installation operations for apptainer."""
         apptainer = Apptainer()
         try:
             self.unit.status = WaitingStatus("Installing apptainer")
             apptainer.install()
             self.unit.status = ActiveStatus("Apptainer installed")
-        except Exception as e:
+            self.unit.status = ActiveStatus("")
+        except Exception:
             self.unit.status = BlockedStatus("Trouble installing apptainer, please debug.")
             event.defer()
             return
         # Set the workload version
-        self._set_workload_version()
+        self._set_workload_version(apptainer)
 
-    def _on_uninstall(self, event):
+    def _on_uninstall(self, event) -> None:
         """Perform uninstallation operations for apptainer."""
         apptainer = Apptainer()
         try:
             self.unit.status = WaitingStatus("Uninstalling apptainer")
             apptainer.uninstall()
-        except Exception as e:
+        except Exception:
             self.unit.status = BlockedStatus("Trouble uninstalling apptainer, please debug.")
             event.defer()
             return
 
-    def _on_upgrade_apptainer(self, event):
+    def _on_upgrade_apptainer(self, event) -> None:
         """Perform upgrade to latest operations."""
         apptainer = Apptainer()
         apptainer.upgrade_to_latest()
         # Set the workload version
-        self._set_workload_version()
+        self._set_workload_version(apptainer)
 
 
 if __name__ == "__main__":  # pragma: nocover

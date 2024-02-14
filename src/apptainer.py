@@ -1,21 +1,18 @@
-#/usr/bin/env python3
+#!/usr/bin/env python3
+"""Apptainer operations."""
 import logging
-import subprocess
-
 from pathlib import Path
 from typing import Optional
 
-import distro
-
 import charms.operator_libs_linux.v0.apt as apt
-
+import distro
 
 logger = logging.getLogger()
 
 
 APPTAINER_PPA_KEY: str = """
 -----BEGIN PGP PUBLIC KEY BLOCK-----
-Comment: Hostname: 
+Comment: Hostname:
 Version: Hockeypuck 2.1.0-223-gdc2762b
 
 xsFNBGPKLe0BEADKAHtUqLFryPhZ3m6uwuIQvwUr4US17QggRrOaS+jAb6e0P8kN
@@ -48,14 +45,17 @@ fKpamSQOUSmfWJTnry/LiYbspi1OB2x3GQk3/4ANw0S4L83A6oXHUMg8x7/sZw==
 
 
 class Apptainer:
+    """Facilitate apptainer package lifecycle ops."""
 
     _package_name: str = "apptainer"
     _keyring_path: Path = Path("/usr/share/keyrings/apptainer.asc")
-        
+
     def _repo(self) -> None:
         """Return the apptainer repo."""
         ppa_url: str = "https://ppa.launchpadcontent.net/apptainer/ppa/ubuntu"
-        sources_list: str = f"deb [signed-by={self._keyring_path}] {ppa_url} {distro.codename()} main"
+        sources_list: str = (
+            f"deb [signed-by={self._keyring_path}] {ppa_url} {distro.codename()} main"
+        )
         return apt.DebianRepository.from_repo_line(sources_list)
 
     def install(self) -> None:
@@ -75,17 +75,17 @@ class Apptainer:
             apt.update()
             apt.add_package(self._package_name)
         except apt.PackageNotFoundError:
-            logger.error(f"{self._package_name} not found in package cache or on system")      
+            logger.error(f"{self._package_name} not found in package cache or on system")
         except apt.PackageError as e:
             logger.error(f"Could not install {self._package_name}. Reason: %s", e.message)
- 
+
     def uninstall(self) -> None:
         """Uninstall the apptainer package using libapt."""
         # Uninstall the apptainer package.
         if apt.remove_package(self._package_name):
             logger.info(f"{self._package_name} removed from system.")
         else:
-            logger.error(f"{self._package_name} not found on system") 
+            logger.error(f"{self._package_name} not found on system")
 
         # Disable the apptainer repo.
         repositories = apt.RepositoryMapping()
@@ -101,9 +101,9 @@ class Apptainer:
             apptainer = apt.DebianPackage.from_system(self._package_name)
             apptainer.ensure(apt.PackageState.Latest)
             logger.info("updated vim to version: %s", apptainer.fullversion)
-        except PackageNotFoundError:
+        except apt.PackageNotFoundError:
             logger.error("a specified package not found in package cache or on system")
-        except PackageError as e:
+        except apt.PackageError as e:
             logger.error("could not install package. Reason: %s", e.message)
 
     def version(self) -> Optional[str]:
